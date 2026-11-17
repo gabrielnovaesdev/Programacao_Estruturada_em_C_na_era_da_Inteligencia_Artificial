@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitoramento de temperatura | Programação Estruturada em C</title>
+<meta name="description" content="Versão web do programa em C que calcula a média de 5 temperaturas e indica NORMAL ou ALERTA.">
+<style>
+  :root{--bg:#0f1115;--card:#171a21;--line:#2a2f3a;--text:#e6e8ee;--mute:#9aa3b2;--ok:#3ecf8e;--bad:#ff6b5e;--acc:#6ea8ff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  main{max-width:860px;margin:0 auto;padding:40px 20px 64px}
+  h1{font-size:1.7rem;margin:0 0 6px;line-height:1.2}
+  h2{font-size:1.1rem;margin:0 0 14px}
+  p.lead{color:var(--mute);margin:0 0 28px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:22px;margin-bottom:22px}
+  label{display:block;font-size:.85rem;color:var(--mute);margin-bottom:6px}
+  input[type=text],input[type=number]{width:100%;background:#0f1115;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:inherit}
+  input:focus-visible,button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+  .temps{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:16px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+  button{font:inherit;border-radius:8px;padding:10px 16px;border:1px solid var(--line);background:#222733;color:var(--text);cursor:pointer}
+  button:hover{border-color:#3a4254}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#0b1020;font-weight:600}
+  .ex{font-size:.85rem;color:var(--mute);margin-top:18px}
+  .ex button{padding:5px 10px;font-size:.85rem;margin:4px 6px 0 0}
+  pre{margin:0;overflow:auto;font:14px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace}
+  .term{background:#0b0d11;border:1px solid var(--line);border-radius:8px;padding:16px;min-height:150px;white-space:pre-wrap}
+  .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-weight:700}
+  .NORMAL{color:var(--ok)} .ALERTA{color:var(--bad)}
+  .err{color:var(--bad);margin-top:12px;min-height:1.4em;font-size:.9rem}
+  details{border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
+  summary{cursor:pointer;color:var(--acc)}
+  .rule{color:var(--mute);font-size:.92rem}
+  footer{color:var(--mute);font-size:.85rem;margin-top:30px}
+  a{color:var(--acc)}
+  @media(max-width:620px){.temps{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Monitoramento de temperatura</h1>
+  <p class="lead">Versão web do programa em C da atividade <em>Programação Estruturada em C na era da IA</em>. Informe o equipamento e 5 temperaturas: o programa calcula a média e diz se a situação é NORMAL ou ALERTA.</p>
+
+  <section class="card" aria-labelledby="t-form">
+    <h2 id="t-form">Entrada</h2>
+    <label for="nome">Nome do equipamento (sem espaços)</label>
+    <input id="nome" type="text" value="Sensor01" autocomplete="off" maxlength="39">
+    <div class="temps" id="temps"></div>
+    <p class="rule">Regra: se alguma temperatura for <strong>maior que 35</strong>, a situação é ALERTA. Exatamente 35 é NORMAL.</p>
+    <div class="row">
+      <button class="primary" id="calc" type="button">Calcular e salvar relatório</button>
+      <button id="limpar" type="button">Limpar campos</button>
+    </div>
+    <div class="err" id="erro" role="alert"></div>
+    <div class="ex">Exemplos:
+      <button type="button" data-ex="Sensor01|20,25,30,35,40">Sensor01 (ALERTA)</button>
+      <button type="button" data-ex="Sensor02|20,22,25,30,35">Sensor02 (NORMAL)</button>
+      <button type="button" data-ex="Sensor03|36,38,40,42,45">Todas acima de 35</button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="t-saida">
+    <h2 id="t-saida">Saída do programa</h2>
+    <pre class="term" id="saida" aria-live="polite">Preencha os campos e clique em "Calcular e salvar relatório".</pre>
+  </section>
+
+  <section class="card" aria-labelledby="t-rel">
+    <h2 id="t-rel">relatorio.txt</h2>
+    <p class="rule">No programa em C, cada execução acrescenta uma linha <code>nome;média;situação</code> ao arquivo. Aqui o relatório fica guardado neste navegador (se ele permitir) e você pode baixá-lo.</p>
+    <pre class="term" id="rel">(vazio)</pre>
+    <div class="row">
+      <button id="baixar" type="button">Baixar relatorio.txt</button>
+      <button id="zerar" type="button">Apagar relatório</button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="t-cod">
+    <h2 id="t-cod">Código em C original</h2>
+    <details>
+      <summary>Ver monitoramento.c</summary>
+      <pre>#include &lt;stdio.h&gt;
+#include &lt;string.h&gt;
+
+#define TOTAL 5
+#define LIMITE 35.0f
+
+/* Registro que sera gravado no arquivo */
+typedef struct {
+    char nome[40];
+    float media;
+    int alerta;
+} Relatorio;
+
+/* Calcula a media dos valores do vetor */
+float calcular_media(const float valores[], int quantidade) {
+    float soma = 0.0f;
+
+    for (int i = 0; i &lt; quantidade; i++) {
+        soma += valores[i];
+    }
+
+    return soma / quantidade;
+}
+
+/* Retorna 1 se alguma temperatura for MAIOR que o limite; senao 0 */
+int verificar_alerta(const float valores[], int quantidade) {
+    for (int i = 0; i &lt; quantidade; i++) {
+        if (valores[i] &gt; LIMITE) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+/* Acrescenta uma linha no arquivo relatorio.txt (modo "a" = append) */
+int salvar_relatorio(const Relatorio *r) {
+    FILE *arquivo = fopen("relatorio.txt", "a");
+
+    if (arquivo == NULL) {
+        return 0;
+    }
+
+    fprintf(arquivo, "%s;%.2f;%s\n",
+            r-&gt;nome,
+            r-&gt;media,
+            r-&gt;alerta ? "ALERTA" : "NORMAL");
+
+    if (fclose(arquivo) != 0) {
+        return 0;
+    }
+
+    return 1;
+}
+
+int main(void) {
+    char equipamento[40];
+    float temperaturas[TOTAL];
+
+    printf("Nome do equipamento (sem espacos): ");
+    if (scanf("%39s", equipamento) != 1) {
+        return 1;
+    }
+
+    for (int i = 0; i &lt; TOTAL; i++) {
+        printf("Temperatura %d: ", i + 1);
+
+        if (scanf("%f", &amp;temperaturas[i]) != 1) {
+            printf("Entrada invalida.\n");
+            return 1;
+        }
+    }
+
+    float media = calcular_media(temperaturas, TOTAL);
+    int alerta = verificar_alerta(temperaturas, TOTAL);
+
+    printf("\n--- RELATORIO ---\n");
+    printf("Equipamento: %s\n", equipamento);
+    printf("Media: %.2f graus C\n", media);
+    printf("Situacao: %s\n", alerta ? "ALERTA" : "NORMAL");
+
+    Relatorio resultado;
+
+    strcpy(resultado.nome, equipamento);
+    resultado.media = media;
+    resultado.alerta = alerta;
+
+    if (salvar_relatorio(&amp;resultado)) {
+        printf("Relatorio salvo com sucesso!\n");
+    } else {
+        printf("Nao foi possivel salvar o relatorio.\n");
+    }
+
+    return 0;
+}
+</pre>
+    </details>
+  </section>
+
+  <footer>Código e PDF da atividade no <a href="https://github.com/gabrielnovaesdev/Programacao_Estruturada_em_C_na_era_da_Inteligencia_Artificial">repositório do GitHub</a>.</footer>
+</main>
+
+<script>
+(function(){
+  var TOTAL = 5, LIMITE = 35.0, KEY = 'relatorio_monitoramento';
+  var $ = function(id){ return document.getElementById(id); };
+  var tempsBox = $('temps');
+  for (var i = 1; i <= TOTAL; i++) {
+    var d = document.createElement('div');
+    d.innerHTML = '<label for="t'+i+'">Temperatura '+i+'</label><input id="t'+i+'" type="number" step="any" inputmode="decimal">';
+    tempsBox.appendChild(d);
+  }
+  var inputs = []; for (i = 1; i <= TOTAL; i++) inputs.push($('t'+i));
+  [20,25,30,35,40].forEach(function(v,k){ inputs[k].value = v; });
+
+  // Mesmas funcoes do programa em C (float de 32 bits)
+  function calcularMedia(valores, quantidade){
+    if (quantidade <= 0) return 0;
+    var soma = Math.fround(0);
+    for (var i = 0; i < quantidade; i++) soma = Math.fround(soma + Math.fround(valores[i]));
+    return Math.fround(soma / quantidade);
+  }
+  function verificarAlerta(valores, quantidade){
+    for (var i = 0; i < quantidade; i++) if (Math.fround(valores[i]) > Math.fround(LIMITE)) return 1;
+    return 0;
+  }
+  function ler(){ try { return localStorage.getItem(KEY) || ''; } catch(e){ return memoria; } }
+  var memoria = '';
+  function gravar(txt){ memoria = txt; try { localStorage.setItem(KEY, txt); } catch(e){} }
+  function mostrarRel(){ var t = ler(); $('rel').textContent = t || '(vazio)'; }
+
+  $('calc').addEventListener('click', function(){
+    var erro = $('erro'); erro.textContent = '';
+    var nome = $('nome').value;
+    if (!nome.trim()) { erro.textContent = 'Informe o nome do equipamento.'; return; }
+    if (/\s/.test(nome)) { erro.textContent = 'O nome não pode ter espaços (como no programa em C).'; return; }
+    var valores = [];
+    for (var i = 0; i < TOTAL; i++) {
+      var v = inputs[i].value;
+      if (v === '' || !isFinite(Number(v))) { erro.textContent = 'Preencha a temperatura ' + (i+1) + ' com um número válido.'; inputs[i].focus(); return; }
+      valores.push(Number(v));
+    }
+    var media = calcularMedia(valores, TOTAL);
+    var alerta = verificarAlerta(valores, TOTAL);
+    var sit = alerta ? 'ALERTA' : 'NORMAL';
+    var out = 'Nome do equipamento (sem espacos): ' + nome + '\n';
+    for (i = 0; i < TOTAL; i++) out += 'Temperatura ' + (i+1) + ': ' + valores[i] + '\n';
+    out += '\n--- RELATORIO ---\nEquipamento: ' + nome + '\nMedia: ' + media.toFixed(2) + ' graus C\nSituacao: ';
+    $('saida').textContent = out;
+    var s = document.createElement('span'); s.className = 'badge ' + sit; s.textContent = sit;
+    $('saida').appendChild(s);
+    $('saida').appendChild(document.createTextNode('\nRelatorio salvo com sucesso!'));
+    var atual = ler();
+    gravar(atual + nome + ';' + media.toFixed(2) + ';' + sit + '\n');
+    mostrarRel();
+  });
+
+  $('limpar').addEventListener('click', function(){
+    $('nome').value = ''; inputs.forEach(function(x){ x.value = ''; }); $('erro').textContent = ''; $('nome').focus();
+  });
+  document.querySelectorAll('[data-ex]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var p = b.getAttribute('data-ex').split('|'), v = p[1].split(',');
+      $('nome').value = p[0]; inputs.forEach(function(x,k){ x.value = v[k]; }); $('erro').textContent = '';
+    });
+  });
+  $('baixar').addEventListener('click', function(){
+    var t = ler(); if (!t) { $('erro').textContent = 'O relatório está vazio.'; return; }
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([t], {type:'text/plain;charset=utf-8'}));
+    a.download = 'relatorio.txt'; document.body.appendChild(a); a.click(); a.remove();
+  });
+  $('zerar').addEventListener('click', function(){ gravar(''); mostrarRel(); });
+  mostrarRel();
+})();
+</script>
+</body>
+</html>
